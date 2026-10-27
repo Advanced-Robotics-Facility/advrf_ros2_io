@@ -1,0 +1,33 @@
+/**/joint_control_node:
+  ros__parameters:
+    # Omit joints to discover names from rx/joint_states.
+    # ROS YAML cannot type an empty list; only set this for an explicit filter.
+    # joints: [joint_a, joint_b]
+    position_step: 0.01
+    axis_speed: 1.0
+
+    publish_rate: 50.0
+    feedback_timeout: 0.5
+    input_timeout: 0.25
+    power_timeout: 4.0
+    # Optional paired arrays, in the same order as joints:
+    # lower_positions: [-1.0, -1.0]
+    # upper_positions: [1.0, 1.0]
+
+/**/joy_control_node:
+  ros__parameters:
+    input_timeout: 0.25
+    next_button: 5
+    previous_button: 4
+    power_on_button: 0
+    power_off_button: 1
+    position_plus_button: -1
+    position_minus_button: -1
+    position_axis: -1
+    position_minus_axis: 2
+    position_plus_axis: 5
+    position_trigger_axes: true
+    speed_axis: -1
+    speed_axis_inverted: false
+    axis_deadzone: 0.15
+    axis_scale: 1.0

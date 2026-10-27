@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>advrf_ros2_io</name>
+  <version>0.1.0</version>
+  <description>ROS2 I/O for ADVRF middleware.</description>
+  
+  <maintainer email="hugo.pousseur@iit.it">Hugo Pousseur</maintainer>
+  <maintainer email="manuel.delucchi@iit.it">Manuel Delucchi</maintainer>
+
+  <license>TODO</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>ament_cmake_python</buildtool_depend>
+  
+  <depend>rclcpp</depend>
+  <depend>std_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>advrf_ros2_interfaces</depend>
+
+  <exec_depend>advrf_ros2_motors_controller</exec_depend>
+  <exec_depend>joy</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>ament_index_python</exec_depend>
+  <test_depend>ament_cmake_gtest</test_depend>
+
+  <export><build_type>ament_cmake</build_type></export>
+</package>
