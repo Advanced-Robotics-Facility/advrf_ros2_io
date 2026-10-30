@@ -1,5 +1,7 @@
 """Start the joystick driver and bind it to selected-joint control."""
 import yaml
+from advrf_ros2_motors_controller.launch_config import (
+    config_arguments, config_argument, RobotNamespace, resolve_ecat_namespace)
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
@@ -17,6 +19,9 @@ def setup(context):
         if names:
             parameters['joints'] = names
     namespace = LaunchConfiguration('namespace')
+    transport = resolve_ecat_namespace(
+        LaunchConfiguration('ecat_namespace').perform(context),
+        config_argument(context, 'ec_cfg'), namespace.perform(context))
     return [
         Node(package='joy', executable='joy_node', name='joy_node', namespace=namespace,
              output='screen', parameters=[{
@@ -28,13 +33,15 @@ def setup(context):
         Node(package='advrf_ros2_io', executable='joy_control_node', namespace=namespace,
              output='screen', parameters=[LaunchConfiguration('config')]),
         Node(package='advrf_ros2_io', executable='joint_control_node', namespace=namespace,
-             output='screen', parameters=[LaunchConfiguration('config'), parameters]),
+             output='screen', parameters=[LaunchConfiguration('config'), parameters],
+             remappings=[('rx/joint_states', transport.rstrip('/') + '/rx/joint_states')]),
     ]
 
 
 def generate_launch_description():
-    return LaunchDescription([
-        DeclareLaunchArgument('namespace', default_value='', description='Namespace of the existing motor controller'),
+    return LaunchDescription(config_arguments() + [
+        DeclareLaunchArgument('ecat_namespace', default_value=''),
+        DeclareLaunchArgument('namespace', default_value=RobotNamespace(), description='Namespace of the existing motor controller'),
         DeclareLaunchArgument('config', default_value=PathJoinSubstitution([
             FindPackageShare('advrf_ros2_io'), 'config', 'joint_control.yaml'])),
         DeclareLaunchArgument('joints', default_value='', description='Optional joint filter; otherwise discover from rx/joint_states'),
