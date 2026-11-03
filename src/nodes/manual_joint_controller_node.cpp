@@ -11,7 +11,7 @@ namespace advrf_ros2_io
 class JointControlNode : public rclcpp::Node
 {
 public:
-  JointControlNode() : Node("joint_control_node"), client_(*this)
+  JointControlNode() : Node("manual_joint_controller_node"), client_(*this)
   {
     events_ = create_subscription<Event>(
         "joint_control/events", rclcpp::QoS(10),
@@ -117,7 +117,7 @@ int main(int argc, char **argv)
   }
   catch (const std::exception &error)
   {
-    RCLCPP_FATAL(rclcpp::get_logger("joint_control_node"), "%s", error.what());
+    RCLCPP_FATAL(rclcpp::get_logger("manual_joint_controller_node"), "%s", error.what());
     rclcpp::shutdown();
     return 1;
   }

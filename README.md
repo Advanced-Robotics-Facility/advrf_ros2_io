@@ -12,7 +12,7 @@ Use the controller's position mode for position jogging; stop other publishers
 of `joint_commands` and disable trajectory generation when using the IO node.
 
 ```bash
-ros2 run advrf_ros2_io joint_control_node --ros-args \
+ros2 run advrf_ros2_io manual_joint_controller_node --ros-args \
   -r __ns:=/robot
 ```
 
@@ -43,7 +43,7 @@ Nothing moves or powers on at startup.
 ros2 launch advrf_ros2_io joy.launch.py namespace:=/robot
 ```
 
-Starts `joy/joy_node`, `joy_control_node` and `joint_control_node` in the controller namespace.
+Starts `joy/joy_node`, `joystick_input_node` and `manual_joint_controller_node` in the controller namespace.
 The motor power and direct joint controller nodes must already be running.
 Use `device_id:=1` to choose another SDL joystick, or `config:=/path/to/config.yaml`
 to load motion settings. This launcher overrides the bindings with:
@@ -91,8 +91,8 @@ axis, and zero to release it. This is a normalized command: its amplitude
 maps proportionally to `axis_speed` position units per second. Input adapters
 apply device-specific deadzones and speed scaling before publishing.
 
-The separate `joy_control_node` subscribes to `sensor_msgs/msg/Joy` on `joy`
-and publishes typed events and normalized axes to `joint_control_node`.
+The separate `joystick_input_node` subscribes to `sensor_msgs/msg/Joy` on `joy`
+and publishes typed events and normalized axes to `manual_joint_controller_node`.
 The controller has no joystick dependency in its input handling; a keyboard or
 GUI adapter can publish the same two topics. The launch file starts both nodes.
 Configuration is scoped separately to each node.
@@ -174,3 +174,10 @@ core is exported separately as `advrf_ros2_io::joint_control`.
 `colcon test --packages-select advrf_ros2_io` runs core tests and a mock ROS
 integration test for selection, power, position, joystick edges and watchdogs.
 The mock test runs in an isolated ROS domain and sends no hardware commands.
+
+
+Grouped launch topic paths: `<robot>/controllers/joint_commands` for joint
+commands and `<robot>/inputs/selected_joint` for input selection. The panel
+uses the grouped command topic. Actions and power services keep their existing
+robot-level paths. Standalone nodes use relative topics; apply equivalent
+remappings when running them outside the supplied launch files.

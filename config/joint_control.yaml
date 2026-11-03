@@ -1,4 +1,4 @@
-/**/joint_control_node:
+/**/manual_joint_controller_node:
   ros__parameters:
     # Omit joints to discover names from rx/joint_states.
     # ROS YAML cannot type an empty list; only set this for an explicit filter.
@@ -14,7 +14,7 @@
     # lower_positions: [-1.0, -1.0]
     # upper_positions: [1.0, 1.0]
 
-/**/joy_control_node:
+/**/joystick_input_node:
   ros__parameters:
     input_timeout: 0.25
     next_button: 5

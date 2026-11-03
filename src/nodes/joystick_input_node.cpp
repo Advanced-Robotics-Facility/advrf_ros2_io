@@ -14,7 +14,7 @@ namespace advrf_ros2_io
 class JoyControlNode : public rclcpp::Node
 {
 public:
-  JoyControlNode() : Node("joy_control_node")
+  JoyControlNode() : Node("joystick_input_node")
   {
     const std::array<std::string, 6> names{
         "next_button", "previous_button", "power_on_button", "power_off_button",
@@ -252,7 +252,7 @@ int main(int argc, char **argv)
   }
   catch (const std::exception &error)
   {
-    RCLCPP_FATAL(rclcpp::get_logger("joy_control_node"), "%s", error.what());
+    RCLCPP_FATAL(rclcpp::get_logger("joystick_input_node"), "%s", error.what());
     rclcpp::shutdown();
     return 1;
   }

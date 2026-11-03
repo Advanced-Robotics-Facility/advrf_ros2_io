@@ -1,7 +1,7 @@
 """Start the joystick driver and bind it to selected-joint control."""
 import yaml
 from advrf_ros2_motors_controller.launch_config import (
-    config_arguments, config_argument, RobotNamespace, resolve_ecat_namespace)
+    config_arguments, config_argument, RobotNamespace, resolve_ecat_namespace, grouped_namespace, robot_remappings)
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
@@ -22,19 +22,21 @@ def setup(context):
     transport = resolve_ecat_namespace(
         LaunchConfiguration('ecat_namespace').perform(context),
         config_argument(context, 'ec_cfg'), namespace.perform(context))
+    input_namespace = grouped_namespace(namespace.perform(context), 'inputs')
     return [
-        Node(package='joy', executable='joy_node', name='joy_node', namespace=namespace,
+        Node(package='joy', executable='joy_node', name='joy_node', namespace=input_namespace,
              output='screen', parameters=[{
                  'device_id': int(LaunchConfiguration('device_id').perform(context)),
-                 'deadzone': 0.0,  # Applied once, by joy_control_node.
+                 'deadzone': 0.0,  # Applied once, by joystick_input_node.
                  'autorepeat_rate': 50.0,
                  'sticky_buttons': False,
              }]),
-        Node(package='advrf_ros2_io', executable='joy_control_node', namespace=namespace,
+        Node(package='advrf_ros2_io', executable='joystick_input_node', namespace=input_namespace,
              output='screen', parameters=[LaunchConfiguration('config')]),
-        Node(package='advrf_ros2_io', executable='joint_control_node', namespace=namespace,
+        Node(package='advrf_ros2_io', executable='manual_joint_controller_node', namespace=input_namespace,
              output='screen', parameters=[LaunchConfiguration('config'), parameters],
-             remappings=[('rx/joint_states', transport.rstrip('/') + '/rx/joint_states')]),
+             remappings=[('rx/joint_states', transport.rstrip('/') + '/rx/joint_states')]
+                        + robot_remappings(namespace.perform(context))),
     ]
 
 
