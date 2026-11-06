@@ -1,0 +1,83 @@
+#!/usr/bin/env python3
+"""Show the selected manual-control joint and its URDF axis in RViz."""
+import math
+import xml.etree.ElementTree as ET
+import rclpy
+from rclpy.qos import QoSProfile, DurabilityPolicy
+from sensor_msgs.msg import JointState
+from geometry_msgs.msg import Point
+from visualization_msgs.msg import Marker, MarkerArray
+
+
+def joint_frames(description):
+    result = {}
+    for joint in ET.fromstring(description).findall('joint'):
+        if joint.get('type') == 'fixed':
+            continue
+        child = joint.find('child')
+        axis = joint.find('axis')
+        values = [float(v) for v in (axis.get('xyz', '1 0 0') if axis is not None else '1 0 0').split()]
+        if child is None or len(values) != 3:
+            continue
+        length = math.sqrt(sum(v*v for v in values))
+        if not math.isfinite(length) or length <= 0:
+            continue
+        result[joint.get('name')] = (child.get('link'), [v / length for v in values])
+    return result
+
+
+def markers_for(joints, selected):
+    # A dedicated topic allows clearing the previous selection, including invalid selections.
+    clear = Marker(action=Marker.DELETEALL)
+    markers = [clear]
+    if selected not in joints:
+        return MarkerArray(markers=markers)
+    frame, axis = joints[selected]
+    for identifier, kind in enumerate([Marker.SPHERE, Marker.ARROW, Marker.TEXT_VIEW_FACING]):
+        marker = Marker()
+        marker.header.frame_id = frame
+        marker.ns = 'selected_joint'
+        marker.id = identifier
+        marker.type = kind
+        marker.action = Marker.ADD
+        marker.pose.orientation.w = 1.0
+        marker.frame_locked = True
+        marker.color.r, marker.color.g, marker.color.b, marker.color.a = 1.0, 0.65, 0.05, 0.9
+        if kind == Marker.SPHERE:
+            marker.scale.x = marker.scale.y = marker.scale.z = 0.07
+        elif kind == Marker.ARROW:
+            marker.points = [Point(), Point(x=0.22*axis[0], y=0.22*axis[1], z=0.22*axis[2])]
+            marker.scale.x, marker.scale.y, marker.scale.z = 0.014, 0.035, 0.045
+        else:
+            marker.text = selected
+            marker.pose.position.z = 0.12
+            marker.scale.z = 0.045
+        markers.append(marker)
+    return MarkerArray(markers=markers)
+
+
+def main():
+    rclpy.init()
+    node = rclpy.create_node('selected_joint_marker_node')
+    try:
+        description = node.declare_parameter('robot_description', '').value
+        joints = joint_frames(description)
+        qos = QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL)
+        publisher = node.create_publisher(MarkerArray, 'inputs/selected_joint_marker', qos)
+
+        def selection(message):
+            name = message.name[0] if len(message.name) == 1 else ''
+            publisher.publish(markers_for(joints, name))
+            if name and name not in joints:
+                node.get_logger().warning(f'No URDF joint available for selection: {name}')
+
+        subscription = node.create_subscription(JointState, 'inputs/selected_joint', selection, qos)
+        rclpy.spin(node)
+    finally:
+        node.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()

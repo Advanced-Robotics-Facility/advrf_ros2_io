@@ -4,6 +4,8 @@
 #include <optional>
 #include <sensor_msgs/msg/joy.hpp>
 #include <std_msgs/msg/float64.hpp>
+#include <std_msgs/msg/bool.hpp>
+#include <std_srvs/srv/set_bool.hpp>
 #include <array>
 #include <algorithm>
 #include <cmath>
@@ -29,6 +31,21 @@ public:
       {
         throw std::invalid_argument("Joy buttons must be distinct indices or -1 to disable");
       }
+    }
+    toggle_active_button_ = declare_parameter("toggle_active_button", -1);
+    if (toggle_active_button_ < -1 ||
+        (toggle_active_button_ >= 0 && !used.insert(toggle_active_button_).second))
+      throw std::invalid_argument("toggle_active_button must be distinct or -1 to disable");
+    if (toggle_active_button_ >= 0)
+    {
+      active_client_ = create_client<SetActive>("ecat/set_active");
+      active_state_ = create_subscription<std_msgs::msg::Bool>(
+          "ecat/active", rclcpp::QoS(1).reliable().transient_local(),
+          [this](std_msgs::msg::Bool::ConstSharedPtr state)
+          {
+            bridge_active_ = state->data; // Used only to choose the next SetBool request.
+          });
+      active_timer_ = create_wall_timer(std::chrono::milliseconds(50), [this]() { check_toggle(); });
     }
     axis_index_ = declare_parameter("position_axis", 1);
     speed_axis_ = declare_parameter("speed_axis", -1);
@@ -74,6 +91,45 @@ public:
 
 private:
   using Event = advrf_ros2_interfaces::msg::JointControlEvent;
+  using SetActive = std_srvs::srv::SetBool;
+  using ActiveClient = rclcpp::Client<SetActive>;
+
+  void toggle_active()
+  {
+    if (active_request_) return;
+    if (!bridge_active_ || !active_client_->service_is_ready())
+    {
+      RCLCPP_WARN(get_logger(), "Bridge active state/service unavailable; toggle ignored");
+      return;
+    }
+    auto request = std::make_shared<SetActive::Request>();
+    request->data = !*bridge_active_;
+    active_sent_ = std::chrono::steady_clock::now();
+    active_request_.emplace(active_client_->async_send_request(request));
+  }
+
+  void check_toggle()
+  {
+    if (!active_request_) return;
+    if (active_request_->wait_for(std::chrono::seconds(0)) == std::future_status::ready)
+    {
+      try
+      {
+        const auto response = active_request_->get();
+        if (response->success) RCLCPP_INFO(get_logger(), "%s", response->message.c_str());
+        else RCLCPP_WARN(get_logger(), "%s", response->message.c_str());
+      }
+      catch (const std::exception &error) { RCLCPP_WARN(get_logger(), "%s", error.what()); }
+      active_request_.reset();
+    }
+    else if (std::chrono::steady_clock::now() - active_sent_ >= std::chrono::seconds(1))
+    {
+      active_client_->remove_pending_request(*active_request_);
+      active_request_.reset();
+      bridge_active_.reset();
+      RCLCPP_WARN(get_logger(), "Bridge toggle timeout; waiting for state, no automatic retry");
+    }
+  }
 
   void dispatch(uint8_t action)
   {
@@ -157,6 +213,11 @@ private:
     {
       dispatch(Event::POWER_OFF);
     }
+    else if (!first && pressed(message.buttons, toggle_active_button_) &&
+             !pressed(previous_buttons_, toggle_active_button_))
+    {
+      toggle_active();
+    }
     else if (!first)
     {
       for (size_t i : {size_t(0), size_t(1), size_t(2), size_t(4), size_t(5)})
@@ -223,6 +284,13 @@ private:
     }
   }
 
+  int toggle_active_button_ = -1;
+  std::optional<bool> bridge_active_;
+  ActiveClient::SharedPtr active_client_;
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr active_state_;
+  rclcpp::TimerBase::SharedPtr active_timer_;
+  std::optional<ActiveClient::FutureAndRequestId> active_request_;
+  std::chrono::steady_clock::time_point active_sent_;
   std::array<int, 6> buttons_;
   int axis_index_;
   int minus_axis_;

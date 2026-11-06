@@ -22,7 +22,7 @@ JointControlClient::JointControlClient(rclcpp::Node &node) : node_(node)
     throw std::invalid_argument("publish_rate and power_timeout must be finite and positive");
   publisher_ = node.create_publisher<sensor_msgs::msg::JointState>("joint_commands", rclcpp::QoS(1));
   selection_ = node.create_publisher<sensor_msgs::msg::JointState>("selected_joint", rclcpp::QoS(1).transient_local());
-  power_ = node.create_client<Power>("motor_power_request");
+
   if (!config.joints.empty()) initialize();
   else
   {
@@ -101,14 +101,9 @@ void JointControlClient::publish_selection()
 
 void JointControlClient::power(const std::string &joint, bool on)
 {
-  if (pending_) throw std::runtime_error("Motor power request in progress");
-  if (!power_->service_is_ready()) throw std::runtime_error("motor_power_request unavailable");
-  auto request = std::make_shared<Power::Request>();
-  request->joint = joint;
-  request->action = on ? Power::Request::ACTION_POWER_ON : Power::Request::ACTION_POWER_OFF;
-  pending_.emplace(power_->async_send_request(request));
-  pending_joint_ = joint;
-  power_sent_ = JointControl::Clock::now();
+  (void)joint;
+  (void)on;
+  throw std::runtime_error("Motor power requests are temporarily disabled");
 }
 
 void JointControlClient::tick()

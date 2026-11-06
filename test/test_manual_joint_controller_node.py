@@ -155,9 +155,9 @@ class JointControlNodeTest(unittest.TestCase):
                     self.assertEqual(commands[-1].name, ['b'])
                     self.assertAlmostEqual(commands[-1].position[0], 1.99)
                     event('power_on')
-                    self.assertEqual(power[-1], ('b', MotorPowerRequest.Request.ACTION_POWER_ON))
+                    self.assertEqual(power, [])
                     event('power_off')
-                    self.assertEqual(power[-1], ('b', MotorPowerRequest.Request.ACTION_POWER_OFF))
+                    self.assertEqual(power, [])
                     # First sample seeds held buttons; only new presses generate events.
                     joystick(5)
                     joystick()
@@ -168,7 +168,7 @@ class JointControlNodeTest(unittest.TestCase):
                     joystick()
                     joystick(0)
                     joystick(0)
-                    self.assertEqual(len(power), count + 1)
+                    self.assertEqual(len(power), count)
                     joystick()
                     if '--triggers' in sys.argv:
                         before_buttons = len(commands)

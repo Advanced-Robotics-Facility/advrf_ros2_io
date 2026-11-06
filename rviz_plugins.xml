@@ -1,0 +1,5 @@
+<library path="selected_joint_robot">
+  <class name="advrf_ros2_io/SelectedJointRobot" type="advrf_ros2_io::SelectedJointRobot" base_class_type="rviz_common::Display">
+    <description>RobotModel that highlights the child link of the selected manual joint.</description>
+  </class>
+</library>
