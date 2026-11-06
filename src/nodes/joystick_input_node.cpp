@@ -38,15 +38,20 @@ public:
       throw std::invalid_argument("toggle_active_button must be distinct or -1 to disable");
     if (toggle_active_button_ >= 0)
     {
-      active_client_ = create_client<SetActive>("ecat/set_active");
-      active_state_ = create_subscription<std_msgs::msg::Bool>(
-          "ecat/active", rclcpp::QoS(1).reliable().transient_local(),
-          [this](std_msgs::msg::Bool::ConstSharedPtr state)
-          {
-            bridge_active_ = state->data; // Used only to choose the next SetBool request.
-          });
+      active_client_ = create_client<SetActive>("ecat/set_active_tx");
       active_timer_ = create_wall_timer(std::chrono::milliseconds(50), [this]() { check_toggle(); });
     }
+    active_state_ = create_subscription<std_msgs::msg::Bool>(
+        "ecat/active", rclcpp::QoS(1).reliable().transient_local(),
+        [this](std_msgs::msg::Bool::ConstSharedPtr state)
+        {
+          if (!bridge_active_ || *bridge_active_ != state->data)
+          {
+            axis_armed_ = false;
+            publish_axis(0);
+          }
+          bridge_active_ = state->data;
+        });
     axis_index_ = declare_parameter("position_axis", 1);
     speed_axis_ = declare_parameter("speed_axis", -1);
     if (speed_axis_ < -1)
@@ -127,6 +132,8 @@ private:
       active_client_->remove_pending_request(*active_request_);
       active_request_.reset();
       bridge_active_.reset();
+      axis_armed_ = false;
+      publish_axis(0);
       RCLCPP_WARN(get_logger(), "Bridge toggle timeout; waiting for state, no automatic retry");
     }
   }
@@ -137,6 +144,9 @@ private:
     {
       axis_armed_ = false;
     }
+
+    if ((action == Event::POSITION_PLUS || action == Event::POSITION_MINUS) &&
+        !bridge_active_.value_or(false)) return;
 
     Event message;
     message.action = action;
@@ -235,6 +245,12 @@ private:
 
   void handle_axes(const sensor_msgs::msg::Joy &message)
   {
+    if (!bridge_active_.value_or(false))
+    {
+      axis_armed_ = false;
+      publish_axis(0);
+      return;
+    }
     double speed = 1.0;
     if (speed_axis_ >= 0)
     {

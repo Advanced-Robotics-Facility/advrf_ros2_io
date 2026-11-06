@@ -11,9 +11,9 @@ import unittest
 
 import rclpy
 from ament_index_python.packages import get_package_share_directory
-from rclpy.qos import qos_profile_sensor_data
+from rclpy.qos import qos_profile_sensor_data, QoSProfile, DurabilityPolicy
 from sensor_msgs.msg import JointState, Joy
-from std_msgs.msg import Float64
+from std_msgs.msg import Float64, Bool
 from advrf_ros2_interfaces.msg import JointControlEvent
 from advrf_ros2_interfaces.srv import MotorPowerRequest
 
@@ -24,6 +24,8 @@ class JointControlNodeTest(unittest.TestCase):
             os.environ['ROS_LOG_DIR'] = root
             rclpy.init()
             node = rclpy.create_node('mock_controller', namespace='/io_test')
+            active = node.create_publisher(Bool, "ecat/active", QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL))
+            active.publish(Bool(data=True))
             commands, power = [], []
             feedback = node.create_publisher(JointState, 'rx/joint_states', qos_profile_sensor_data)
             events = node.create_publisher(JointControlEvent, 'joint_control/events', 10)

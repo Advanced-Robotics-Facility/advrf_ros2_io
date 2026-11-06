@@ -15,7 +15,7 @@ from std_srvs.srv import SetBool
 
 
 class JoystickActiveTest(unittest.TestCase):
-    def test_toggle_without_gating_axes(self):
+    def test_toggle_gates_axes_until_active_and_neutral(self):
         with tempfile.TemporaryDirectory() as tmp:
             os.environ['ROS_LOG_DIR'] = tmp
             rclpy.init()
@@ -31,7 +31,7 @@ class JoystickActiveTest(unittest.TestCase):
                 res.success = True
                 res.message = 'mock bridge updated'
                 return res
-            service = node.create_service(SetBool, 'ecat/set_active', toggle)
+            service = node.create_service(SetBool, 'ecat/set_active_tx', toggle)
             joy = node.create_publisher(Joy, 'joy', 10)
             sub = node.create_subscription(Float64, 'joint_control/axis', lambda msg: axes.append(msg.data), 10)
             state.publish(Bool(data=False))
@@ -53,10 +53,10 @@ class JoystickActiveTest(unittest.TestCase):
                 send(pressed=True)  # A held at connection must not toggle.
                 self.assertEqual(requests, [])
                 send(axis=0.8)
-                self.assertGreater(axes[-1], 0, "Inactive bridge must not gate joystick data")
+                self.assertEqual(axes[-1], 0, "Inactive bridge must block movement")
                 send(); send(pressed=True); spin(0.15)
                 self.assertEqual(requests, [True])
-                self.assertGreater(axes[-1], 0, 'Pending service request must not gate joystick data')
+                self.assertEqual(axes[-1], 0, 'Enabling TX requires neutral before movement')
                 send(pressed=True); send(pressed=True)
                 self.assertEqual(requests, [True])
                 send(); send(axis=0.8)
@@ -64,7 +64,7 @@ class JoystickActiveTest(unittest.TestCase):
                 send(); send(pressed=True); spin(0.15)
                 self.assertEqual(requests, [True, False])
                 send(axis=0.8)
-                self.assertGreater(axes[-1], 0, "Inactive bridge must not gate joystick data")
+                self.assertEqual(axes[-1], 0, "Inactive bridge must block movement")
                 send(); send(pressed=True); spin(0.15)
                 self.assertEqual(requests, [True, False, True])
                 # External/watchdog state change must replace any locally inferred state.
@@ -74,7 +74,7 @@ class JoystickActiveTest(unittest.TestCase):
                 state.publish(Bool(data=False))
                 spin(0.1)
                 send(axis=0.8)
-                self.assertGreater(axes[-1], 0, 'External deactivation must not reset the joystick axis')
+                self.assertEqual(axes[-1], 0, 'External deactivation must block the joystick axis')
                 self.assertIsNone(process.poll())
             finally:
                 process.terminate(); process.wait(timeout=5)
