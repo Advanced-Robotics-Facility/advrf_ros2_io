@@ -15,7 +15,6 @@ from rclpy.qos import qos_profile_sensor_data, QoSProfile, DurabilityPolicy
 from sensor_msgs.msg import JointState, Joy
 from std_msgs.msg import Float64, Bool
 from advrf_ros2_interfaces.msg import JointControlEvent
-from advrf_ros2_interfaces.srv import MotorPowerRequest
 
 
 class JointControlNodeTest(unittest.TestCase):
@@ -26,20 +25,12 @@ class JointControlNodeTest(unittest.TestCase):
             node = rclpy.create_node('mock_controller', namespace='/io_test')
             active = node.create_publisher(Bool, "ecat/active", QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL))
             active.publish(Bool(data=True))
-            commands, power = [], []
+            commands = []
             feedback = node.create_publisher(JointState, 'rx/joint_states', qos_profile_sensor_data)
             events = node.create_publisher(JointControlEvent, 'joint_control/events', 10)
             axis_input = node.create_publisher(Float64, 'joint_control/axis', 1)
             joy = node.create_publisher(Joy, 'joy', qos_profile_sensor_data)
             subscription = node.create_subscription(JointState, 'joint_commands', commands.append, 10)
-
-            def power_request(request, response):
-                power.append((request.joint, request.action))
-                response.success = True
-                response.message = 'mock ACK'
-                return response
-
-            server = node.create_service(MotorPowerRequest, 'motor_power_request', power_request)
 
             def spin(duration, fresh=True):
                 end = time.monotonic() + duration
@@ -117,7 +108,7 @@ class JointControlNodeTest(unittest.TestCase):
                         spin(0.05, fresh='--discover' not in sys.argv)
                     self.assertGreater(events.get_subscription_count(), 0)
                     if '--discover' in sys.argv:
-                        events.publish(JointControlEvent(action=JointControlEvent.POWER_ON))
+                        events.publish(JointControlEvent(action=3))
                         spin(0.05, fresh=False)
                         events.publish(JointControlEvent(action=JointControlEvent.POSITION_PLUS))
                         spin(0.05, fresh=False)
@@ -128,10 +119,11 @@ class JointControlNodeTest(unittest.TestCase):
                             feedback.publish(invalid)
                             spin(0.03, fresh=False)
                         self.assertEqual(commands, [])
-                        self.assertEqual(power, [])
                     spin(0.2)
                     self.assertEqual(commands, [])
-                    self.assertEqual(power, [])
+                    # The adapter sends neutral when it discovers bridge state.
+                    # Reset arming explicitly before checking the generic input.
+                    event('sync')
                     # The generic interface works without joystick messages.
                     events.publish(JointControlEvent(action=255))
                     axis_input.publish(Float64(data=1.0))
@@ -156,21 +148,23 @@ class JointControlNodeTest(unittest.TestCase):
                     event('position_minus')
                     self.assertEqual(commands[-1].name, ['b'])
                     self.assertAlmostEqual(commands[-1].position[0], 1.99)
-                    event('power_on')
-                    self.assertEqual(power, [])
-                    event('power_off')
-                    self.assertEqual(power, [])
+                    # Removed power action values must not publish commands.
+                    count = len(commands)
+                    for action in (3, 4):
+                        events.publish(JointControlEvent(action=action))
+                        spin(0.06)
+                    self.assertEqual(len(commands), count)
                     # First sample seeds held buttons; only new presses generate events.
                     joystick(5)
                     joystick()
                     joystick(5)
                     event('position_plus')
                     self.assertEqual(commands[-1].name, ['a'])
-                    count = len(power)
+                    count = len(commands)
                     joystick()
                     joystick(0)
                     joystick(0)
-                    self.assertEqual(len(power), count)
+                    self.assertEqual(len(commands), count)
                     joystick()
                     if '--triggers' in sys.argv:
                         before_buttons = len(commands)

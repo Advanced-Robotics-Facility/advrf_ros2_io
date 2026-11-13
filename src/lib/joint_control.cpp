@@ -7,12 +7,12 @@
 
 namespace advrf_ros2_io
 {
-JointControl::JointControl(Config config, PositionSink position, PowerSink power)
-    : config_(std::move(config)), position_(std::move(position)), power_(std::move(power)),
+JointControl::JointControl(Config config, PositionSink position)
+    : config_(std::move(config)), position_(std::move(position)),
       feedback_(config_.joints.size())
 {
   const std::set<std::string> names(config_.joints.begin(), config_.joints.end());
-  if (names.empty() || names.count("") || names.size() != config_.joints.size() || !position_ || !power_)
+  if (names.empty() || names.count("") || names.size() != config_.joints.size() || !position_)
     throw std::invalid_argument("Unique, nonempty joints and command sinks are required");
   for (double value : {config_.position_step, config_.axis_speed, config_.feedback_timeout, config_.input_timeout})
     if (!std::isfinite(value) || value <= 0) throw std::invalid_argument("Rates, steps and timeouts must be positive and finite");
@@ -51,11 +51,6 @@ void JointControl::event(JointEvent event, Clock::time_point now)
   case JointEvent::Previous:
     reset_motion();
     selected_ = (selected_ + config_.joints.size() - 1) % config_.joints.size();
-    break;
-  case JointEvent::PowerOn:
-  case JointEvent::PowerOff:
-    reset_motion();
-    power_(selected_joint(), event == JointEvent::PowerOn);
     break;
   case JointEvent::PositionPlus: move(config_.position_step, now); break;
   case JointEvent::PositionMinus: move(-config_.position_step, now); break;

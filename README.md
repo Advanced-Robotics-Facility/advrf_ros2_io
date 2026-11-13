@@ -28,7 +28,6 @@ Joystick parameters include `position_axis`, `speed_axis`, `axis_deadzone`, `axi
 
 - Events: `joint_control/events` (`advrf_ros2_interfaces/msg/JointControlEvent`).
 - Axis: `joint_control/axis` (`std_msgs/msg/Float64`).
-- Joint power client: `advrf_ros2_interfaces/srv/MotorPowerRequest`.
 - The package also provides RViz integration; use the robot launch for configured namespace and topic remappings.
 
 ## Dependencies
@@ -56,4 +55,7 @@ Joystick parameters include `position_axis`, `speed_axis`, `axis_deadzone`, `axi
 | --- | --- |
 | No joystick events | `joy` topic, joystick device and button mappings |
 | Axis has no effect | Axis index, deadzone, input timeout and selected joint |
-| Power request fails | Power service availability and configured joint name |
+
+Motor power and startup are managed exclusively by the EtherCAT bridge through the EtherCAT client.
+Manual input nodes only select joints and publish motion references. The joystick active toggle
+controls the bridge Tx gate; it does not power motors on or off.

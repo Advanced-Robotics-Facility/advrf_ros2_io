@@ -6,13 +6,11 @@
 using namespace advrf_ros2_io;
 using namespace std::chrono_literals;
 
-TEST(JointControl, SelectionStepsAndPowerCaptureSelectedJoint)
+TEST(JointControl, SelectionAndPositionSteps)
 {
-  std::string joint, powered;
+  std::string joint;
   double target = 0;
-  bool on = false;
-  JointControl control({{"a", "b"}}, [&](auto name, double value) { joint = name; target = value; },
-                       [&](auto name, bool value) { powered = name; on = value; });
+  JointControl control({{"a", "b"}}, [&](auto name, double value) { joint = name; target = value; });
   const auto now = JointControl::Clock::now();
   control.feedback("a", 1, now);
   control.feedback("b", 2, now);
@@ -25,21 +23,15 @@ TEST(JointControl, SelectionStepsAndPowerCaptureSelectedJoint)
   EXPECT_EQ(control.selected_joint(), "b");
   control.event(JointEvent::PositionMinus, now);
   EXPECT_DOUBLE_EQ(target, 1.99);
-  control.event(JointEvent::PowerOn, now);
   control.event(JointEvent::Next, now);
-  EXPECT_EQ(powered, "b");
-  EXPECT_TRUE(on);
   EXPECT_EQ(control.selected_joint(), "a");
-  control.event(JointEvent::PowerOff, now);
-  EXPECT_EQ(powered, "a");
-  EXPECT_FALSE(on);
 }
 
 TEST(JointControl, FeedbackWatchdogAndSelectionCancelAxis)
 {
   int commands = 0;
   double target = 0;
-  JointControl control({{"a", "b"}}, [&](auto, double value) { ++commands; target = value; }, [](auto, bool) {});
+  JointControl control({{"a", "b"}}, [&](auto, double value) { ++commands; target = value; });
   const auto now = JointControl::Clock::now();
   EXPECT_THROW(control.event(JointEvent::PositionPlus, now), std::runtime_error);
   control.feedback("a", 1, now);
@@ -68,7 +60,7 @@ TEST(JointControl, LimitsAndDelayedTicks)
   config.upper_positions = {1};
   int commands = 0;
   double target = 0;
-  JointControl control(config, [&](auto, double value) { ++commands; target = value; }, [](auto, bool) {});
+  JointControl control(config, [&](auto, double value) { ++commands; target = value; });
   const auto now = JointControl::Clock::now();
   control.feedback("a", 0.999, now);
   control.event(JointEvent::PositionPlus, now);
@@ -79,5 +71,5 @@ TEST(JointControl, LimitsAndDelayedTicks)
   control.tick(0.02, now + 20ms);
   EXPECT_EQ(commands, 1);
   config.joints = {"a", "a"};
-  EXPECT_THROW(JointControl(config, [](auto, double) {}, [](auto, bool) {}), std::invalid_argument);
+  EXPECT_THROW(JointControl(config, [](auto, double) {}), std::invalid_argument);
 }

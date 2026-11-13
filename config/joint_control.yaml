@@ -9,7 +9,6 @@
     publish_rate: 50.0
     feedback_timeout: 0.5
     input_timeout: 0.25
-    power_timeout: 4.0
     # Optional paired arrays, in the same order as joints:
     # lower_positions: [-1.0, -1.0]
     # upper_positions: [1.0, 1.0]
@@ -19,8 +18,6 @@
     input_timeout: 0.25
     next_button: 5
     previous_button: 4
-    power_on_button: 0
-    power_off_button: 1
     position_plus_button: -1
     position_minus_button: -1
     position_axis: -1

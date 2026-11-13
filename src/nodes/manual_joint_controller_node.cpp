@@ -39,10 +39,6 @@ private:
         return JointEvent::Next;
       case Event::PREVIOUS:
         return JointEvent::Previous;
-      case Event::POWER_ON:
-        return JointEvent::PowerOn;
-      case Event::POWER_OFF:
-        return JointEvent::PowerOff;
       case Event::POSITION_PLUS:
         return JointEvent::PositionPlus;
       case Event::POSITION_MINUS:

@@ -36,7 +36,7 @@ class JoystickActiveTest(unittest.TestCase):
             sub = node.create_subscription(Float64, 'joint_control/axis', lambda msg: axes.append(msg.data), 10)
             state.publish(Bool(data=False))
             process = subprocess.Popen([sys.argv[1], '--ros-args', '-r', '__ns:=/active_test',
-                '-p', 'toggle_active_button:=0', '-p', 'power_on_button:=-1', '-p', 'power_off_button:=-1'],
+                '-p', 'toggle_active_button:=0'],
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             def spin(seconds):
                 end = time.monotonic() + seconds

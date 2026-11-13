@@ -1,7 +1,6 @@
 #include "advrf_ros2_io/joint_control_client.hpp"
 #include <cmath>
 #include <algorithm>
-#include <future>
 #include <set>
 
 namespace advrf_ros2_io
@@ -16,10 +15,9 @@ JointControlClient::JointControlClient(rclcpp::Node &node) : node_(node)
   config.input_timeout = node.declare_parameter("input_timeout", 0.25);
   config.lower_positions = node.declare_parameter<std::vector<double>>("lower_positions", std::vector<double>{});
   config.upper_positions = node.declare_parameter<std::vector<double>>("upper_positions", std::vector<double>{});
-  power_timeout_ = node.declare_parameter("power_timeout", 4.0);
   const double rate = node.declare_parameter("publish_rate", 50.0);
-  if (!std::isfinite(rate) || rate <= 0 || !std::isfinite(power_timeout_) || power_timeout_ <= 0)
-    throw std::invalid_argument("publish_rate and power_timeout must be finite and positive");
+  if (!std::isfinite(rate) || rate <= 0)
+    throw std::invalid_argument("publish_rate must be finite and positive");
   publisher_ = node.create_publisher<sensor_msgs::msg::JointState>("joint_commands", rclcpp::QoS(1));
   selection_ = node.create_publisher<sensor_msgs::msg::JointState>("selected_joint", rclcpp::QoS(1).transient_local());
 
@@ -58,7 +56,6 @@ void JointControlClient::initialize()
   control_ = std::make_unique<JointControl>(config_,
       [this](const std::string &joint, double position)
       {
-        if (pending_) throw std::runtime_error("Motor power request in progress");
         if (publisher_->get_subscription_count() == 0)
           throw std::runtime_error("No joint_commands subscriber");
         sensor_msgs::msg::JointState command;
@@ -66,7 +63,7 @@ void JointControlClient::initialize()
         command.name = {joint};
         command.position = {position};
         publisher_->publish(command);
-      }, [this](const std::string &joint, bool on) { power(joint, on); });
+      });
 }
 
 const std::string &JointControlClient::selected_joint() const
@@ -78,7 +75,6 @@ const std::string &JointControlClient::selected_joint() const
 JointControlClient::~JointControlClient()
 {
   timer_->cancel();
-  if (pending_) power_->remove_pending_request(*pending_);
 }
 
 void JointControlClient::event(JointEvent event)
@@ -99,46 +95,12 @@ void JointControlClient::publish_selection()
   RCLCPP_INFO(node_.get_logger(), "Selected joint: %s", control_->selected_joint().c_str());
 }
 
-void JointControlClient::power(const std::string &joint, bool on)
-{
-  (void)joint;
-  (void)on;
-  throw std::runtime_error("Motor power requests are temporarily disabled");
-}
-
 void JointControlClient::tick()
 {
   const auto now = JointControl::Clock::now();
   const double dt = std::chrono::duration<double>(now - last_tick_).count();
   last_tick_ = now;
   if (!control_) return;
-  if (pending_)
-  {
-    if (pending_->wait_for(std::chrono::seconds(0)) == std::future_status::ready)
-    {
-      try
-      {
-        const auto response = pending_->get();
-        if (response && response->success)
-          RCLCPP_INFO(node_.get_logger(), "%s: %s", pending_joint_.c_str(), response->message.c_str());
-        else
-          RCLCPP_ERROR(node_.get_logger(), "%s: %s (outcome_unknown=%d)", pending_joint_.c_str(),
-                       response ? response->message.c_str() : "Empty power response",
-                       response ? response->outcome_unknown : true);
-      }
-      catch (const std::exception &error) { RCLCPP_ERROR(node_.get_logger(), "Power response: %s", error.what()); }
-      pending_.reset();
-      control_->reset_motion();
-    }
-    else if (std::chrono::duration<double>(now - power_sent_).count() >= power_timeout_)
-    {
-      power_->remove_pending_request(*pending_);
-      pending_.reset();
-      control_->reset_motion();
-      RCLCPP_ERROR(node_.get_logger(), "%s: power timeout, outcome unknown; no retry", pending_joint_.c_str());
-    }
-    return;
-  }
   try { control_->tick(dt, now); }
   catch (const std::exception &error)
   {

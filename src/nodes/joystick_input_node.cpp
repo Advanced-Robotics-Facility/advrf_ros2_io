@@ -18,10 +18,10 @@ class JoyControlNode : public rclcpp::Node
 public:
   JoyControlNode() : Node("joystick_input_node")
   {
-    const std::array<std::string, 6> names{
-        "next_button", "previous_button", "power_on_button", "power_off_button",
+    const std::array<std::string, 4> names{
+        "next_button", "previous_button",
         "position_plus_button", "position_minus_button"};
-    const std::array<int, 6> defaults{5, 4, 0, 1, -1, -1};
+    const std::array<int, 4> defaults{5, 4, -1, -1};
     std::set<int> used;
 
     for (size_t i = 0; i < names.size(); ++i)
@@ -216,21 +216,16 @@ private:
     {
       return index >= 0 && static_cast<size_t>(index) < buttons.size() && buttons[index] != 0;
     };
-    const std::array<uint8_t, 6> actions{Event::NEXT, Event::PREVIOUS, Event::POWER_ON,
-        Event::POWER_OFF, Event::POSITION_PLUS, Event::POSITION_MINUS};
-    // Power OFF takes priority over other simultaneous buttons.
-    if (!first && pressed(message.buttons, buttons_[3]) && !pressed(previous_buttons_, buttons_[3]))
-    {
-      dispatch(Event::POWER_OFF);
-    }
-    else if (!first && pressed(message.buttons, toggle_active_button_) &&
-             !pressed(previous_buttons_, toggle_active_button_))
+    const std::array<uint8_t, 4> actions{Event::NEXT, Event::PREVIOUS,
+        Event::POSITION_PLUS, Event::POSITION_MINUS};
+    if (!first && pressed(message.buttons, toggle_active_button_) &&
+        !pressed(previous_buttons_, toggle_active_button_))
     {
       toggle_active();
     }
     else if (!first)
     {
-      for (size_t i : {size_t(0), size_t(1), size_t(2), size_t(4), size_t(5)})
+      for (size_t i = 0; i < actions.size(); ++i)
       {
         if (pressed(message.buttons, buttons_[i]) && !pressed(previous_buttons_, buttons_[i]))
         {
@@ -307,7 +302,7 @@ private:
   rclcpp::TimerBase::SharedPtr active_timer_;
   std::optional<ActiveClient::FutureAndRequestId> active_request_;
   std::chrono::steady_clock::time_point active_sent_;
-  std::array<int, 6> buttons_;
+  std::array<int, 4> buttons_;
   int axis_index_;
   int minus_axis_;
   int plus_axis_;

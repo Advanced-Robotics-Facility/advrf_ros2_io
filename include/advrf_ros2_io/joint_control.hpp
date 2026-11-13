@@ -8,7 +8,7 @@
 
 namespace advrf_ros2_io
 {
-enum class JointEvent { Next, Previous, PowerOn, PowerOff, PositionPlus, PositionMinus, Sync };
+enum class JointEvent { Next, Previous, PositionPlus, PositionMinus, Sync };
 
 // Input-device and ROS independent. Call from one thread.
 class JointControl
@@ -26,9 +26,8 @@ public:
     std::vector<double> upper_positions;
   };
   using PositionSink = std::function<void(const std::string &, double)>;
-  using PowerSink = std::function<void(const std::string &, bool)>;
 
-  JointControl(Config config, PositionSink position, PowerSink power);
+  JointControl(Config config, PositionSink position);
   const std::string &selected_joint() const;
   void feedback(const std::string &joint, double position, Clock::time_point now = Clock::now());
   void event(JointEvent event, Clock::time_point now = Clock::now());
@@ -40,7 +39,6 @@ private:
   struct Feedback { double position; Clock::time_point received; };
   Config config_;
   PositionSink position_;
-  PowerSink power_;
   std::vector<std::optional<Feedback>> feedback_;
   size_t selected_ = 0;
   std::optional<double> target_;
